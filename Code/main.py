@@ -6,8 +6,9 @@ import time
 WIDTH, HEIGHT = 512, 512
 SQ_SIZE = WIDTH // 8
 COLORS = [pygame.Color("#eeeed2"), pygame.Color("#769656")]
+AI_DELAY = 1.5  # Seconds the AI will "wait" before moving
 
-# --- AI Logic ---
+# --- AI Logic (Same as before) ---
 PIECE_VALUES = {chess.PAWN: 10, chess.KNIGHT: 30, chess.BISHOP: 30, 
                 chess.ROOK: 50, chess.QUEEN: 90, chess.KING: 900}
 
@@ -44,12 +45,10 @@ def minimax(board, depth, alpha, beta, maximizing):
 # --- UI & Sound Helpers ---
 IMAGES = {}
 def load_assets():
-    # Load Piece Images
     pieces = ['wP', 'wR', 'wN', 'wB', 'wK', 'wQ', 'bP', 'bR', 'bN', 'bB', 'bK', 'bQ']
     for p in pieces:
         IMAGES[p] = pygame.transform.scale(pygame.image.load(f"assets/{p}.png"), (SQ_SIZE, SQ_SIZE))
     
-    # Load ONLY Move/Capture Sounds
     global MOVE_SOUND, CAPTURE_SOUND
     MOVE_SOUND = pygame.mixer.Sound("assets/move.wav")
     CAPTURE_SOUND = pygame.mixer.Sound("assets/capture.wav")
@@ -59,18 +58,13 @@ def play_move_sound(board, move):
     else: MOVE_SOUND.play()
 
 def draw_end_screen(screen, text):
-    # Dark semi-transparent overlay
     overlay = pygame.Surface((WIDTH, HEIGHT))
     overlay.set_alpha(180)
     overlay.fill((0, 0, 0))
     screen.blit(overlay, (0, 0))
-    
-    # Victory/Loss Text
     font = pygame.font.SysFont("Arial", 40, bold=True)
     surf = font.render(text, True, (255, 255, 255))
     screen.blit(surf, surf.get_rect(center=(WIDTH//2, HEIGHT//2 - 20)))
-    
-    # Restart Prompt
     sub_font = pygame.font.SysFont("Arial", 20)
     sub_surf = sub_font.render("Press 'R' to Restart", True, (200, 200, 200))
     screen.blit(sub_surf, sub_surf.get_rect(center=(WIDTH//2, HEIGHT//2 + 40)))
@@ -100,21 +94,30 @@ def main():
     board = chess.Board()
     selected_sq = None
     running = True
+    ai_thinking_start = None  # Timer for AI delay
 
     while running:
-        # 1. AI Turn (Black)
+        # 1. AI Turn Management
         if not board.is_game_over() and board.turn == chess.BLACK:
-            best_move = None
-            best_val = float('inf')
-            for move in board.legal_moves:
-                board.push(move)
-                val = minimax(board, 2, -float('inf'), float('inf'), True)
-                board.pop()
-                if val < best_val:
-                    best_val, best_move = val, move
-            if best_move:
-                play_move_sound(board, best_move)
-                board.push(best_move)
+            if ai_thinking_start is None:
+                ai_thinking_start = time.time()  # Start the "thinking" timer
+            
+            # Only move if the AI_DELAY has passed
+            if time.time() - ai_thinking_start >= AI_DELAY:
+                best_move = None
+                best_val = float('inf')
+                for move in board.legal_moves:
+                    board.push(move)
+                    val = minimax(board, 2, -float('inf'), float('inf'), True)
+                    board.pop()
+                    if val < best_val:
+                        best_val, best_move = val, move
+                
+                if best_move:
+                    play_move_sound(board, best_move)
+                    board.push(best_move)
+                
+                ai_thinking_start = None  # Reset timer for next turn
 
         # 2. Event Handling
         for event in pygame.event.get():
@@ -132,16 +135,16 @@ def main():
                         if move in board.legal_moves:
                             play_move_sound(board, move)
                             board.push(move)
+                            # After human moves, timer for AI will start in next loop iteration
                         selected_sq = None
             
-            # Restart logic remains
             if event.type == pygame.KEYDOWN and board.is_game_over():
                 if event.key == pygame.K_r:
                     board.reset()
+                    ai_thinking_start = None
 
         # 3. Drawing
         draw_game(screen, board, selected_sq)
-        
         if board.is_game_over():
             res = board.result()
             msg = "White Wins!" if res == "1-0" else "Black Wins!" if res == "0-1" else "Draw!"
