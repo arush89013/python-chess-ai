@@ -5,10 +5,10 @@ import time
 # --- Configuration ---
 WIDTH, HEIGHT = 512, 512
 SQ_SIZE = WIDTH // 8
-COLORS = [pygame.Color("#eeeed2"), pygame.Color("#769656")]
-AI_DELAY = 1.5  # Seconds the AI will "wait" before moving
+COLORS = [pygame.Color("#f0d9b5"), pygame.Color("#b58863")] 
+AI_DELAY = 1.5 
 
-# --- AI Logic (Same as before) ---
+# --- AI Logic ---
 PIECE_VALUES = {chess.PAWN: 10, chess.KNIGHT: 30, chess.BISHOP: 30, 
                 chess.ROOK: 50, chess.QUEEN: 90, chess.KING: 900}
 
@@ -49,7 +49,10 @@ def load_assets():
     for p in pieces:
         IMAGES[p] = pygame.transform.scale(pygame.image.load(f"assets/{p}.png"), (SQ_SIZE, SQ_SIZE))
     
-    global MOVE_SOUND, CAPTURE_SOUND
+    global MOVE_SOUND, CAPTURE_SOUND, ADDR_FONT
+    pygame.font.init()
+    # Using a slightly bolder font for top-left visibility
+    ADDR_FONT = pygame.font.SysFont("Arial", 11, bold=True) 
     MOVE_SOUND = pygame.mixer.Sound("assets/move.wav")
     CAPTURE_SOUND = pygame.mixer.Sound("assets/capture.wav")
 
@@ -59,8 +62,7 @@ def play_move_sound(board, move):
 
 def draw_end_screen(screen, text):
     overlay = pygame.Surface((WIDTH, HEIGHT))
-    overlay.set_alpha(180)
-    overlay.fill((0, 0, 0))
+    overlay.set_alpha(180); overlay.fill((0, 0, 0))
     screen.blit(overlay, (0, 0))
     font = pygame.font.SysFont("Arial", 40, bold=True)
     surf = font.render(text, True, (255, 255, 255))
@@ -72,11 +74,26 @@ def draw_end_screen(screen, text):
 def draw_game(screen, board, selected):
     for r in range(8):
         for c in range(8):
+            # 1. Draw Square
             color = COLORS[(r + c) % 2]
-            pygame.draw.rect(screen, color, pygame.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
-            if selected == chess.square(c, 7-r):
-                pygame.draw.rect(screen, (255, 255, 0), pygame.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE), 3)
+            rect = pygame.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE)
+            pygame.draw.rect(screen, color, rect)
+            
+            # 2. Draw Cell Address (TOP-LEFT)
+            sq_id = chess.square(c, 7-r)
+            addr_text = chess.square_name(sq_id)
+            # Pick a color that contrasts with the square
+            text_color = (139, 69, 19) if (r + c) % 2 == 0 else (245, 245, 220)
+            addr_surf = ADDR_FONT.render(addr_text, True, text_color)
+            
+            # BLIT AT TOP LEFT (5px padding from edges)
+            screen.blit(addr_surf, (c*SQ_SIZE + 5, r*SQ_SIZE + 5))
 
+            # 3. Highlight selection
+            if selected == sq_id:
+                pygame.draw.rect(screen, (255, 255, 0), rect, 3)
+
+    # 4. Draw Pieces
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
         if piece:
@@ -88,42 +105,31 @@ def main():
     pygame.init()
     pygame.mixer.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Python AI Chess")
+    pygame.display.set_caption("Python AI Chess - Wooden Edition")
     load_assets()
     
     board = chess.Board()
     selected_sq = None
     running = True
-    ai_thinking_start = None  # Timer for AI delay
+    ai_thinking_start = None
 
     while running:
-        # 1. AI Turn Management
         if not board.is_game_over() and board.turn == chess.BLACK:
-            if ai_thinking_start is None:
-                ai_thinking_start = time.time()  # Start the "thinking" timer
-            
-            # Only move if the AI_DELAY has passed
+            if ai_thinking_start is None: ai_thinking_start = time.time()
             if time.time() - ai_thinking_start >= AI_DELAY:
-                best_move = None
-                best_val = float('inf')
+                best_move = None; best_val = float('inf')
                 for move in board.legal_moves:
                     board.push(move)
                     val = minimax(board, 2, -float('inf'), float('inf'), True)
                     board.pop()
-                    if val < best_val:
-                        best_val, best_move = val, move
-                
+                    if val < best_val: best_val, best_move = val, move
                 if best_move:
                     play_move_sound(board, best_move)
                     board.push(best_move)
-                
-                ai_thinking_start = None  # Reset timer for next turn
+                ai_thinking_start = None
 
-        # 2. Event Handling
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            
+            if event.type == pygame.QUIT: running = False
             if event.type == pygame.MOUSEBUTTONDOWN and not board.is_game_over():
                 if board.turn == chess.WHITE:
                     pos = pygame.mouse.get_pos()
@@ -135,15 +141,12 @@ def main():
                         if move in board.legal_moves:
                             play_move_sound(board, move)
                             board.push(move)
-                            # After human moves, timer for AI will start in next loop iteration
                         selected_sq = None
-            
             if event.type == pygame.KEYDOWN and board.is_game_over():
                 if event.key == pygame.K_r:
                     board.reset()
                     ai_thinking_start = None
 
-        # 3. Drawing
         draw_game(screen, board, selected_sq)
         if board.is_game_over():
             res = board.result()
@@ -151,7 +154,6 @@ def main():
             draw_end_screen(screen, msg)
 
         pygame.display.flip()
-
     pygame.quit()
 
 if __name__ == "__main__":
