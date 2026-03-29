@@ -1,109 +1,123 @@
+import pygame
 import chess
 import time
 
-# Evaluation constants
-PIECE_VALUES = {
-    chess.PAWN: 10,
-    chess.KNIGHT: 30,
-    chess.BISHOP: 30,
-    chess.ROOK: 50,
-    chess.QUEEN: 90,
-    chess.KING: 900
-}
+# --- Configuration ---
+WIDTH, HEIGHT = 512, 512
+SQ_SIZE = WIDTH // 8
+COLORS = [pygame.Color("#eeeed2"), pygame.Color("#769656")] # Classic Lichess colors
+
+# --- AI Logic (Minimax + Alpha-Beta) ---
+PIECE_VALUES = {chess.PAWN: 10, chess.KNIGHT: 30, chess.BISHOP: 30, 
+                chess.ROOK: 50, chess.QUEEN: 90, chess.KING: 900}
 
 def evaluate_board(board):
-    """
-    Evaluates the board state. 
-    Positive favors White (Human), Negative favors Black (AI).
-    """
-    if board.is_checkmate():
-        return -9999 if board.turn else 9999
-    if board.is_stalemate() or board.is_insufficient_material():
-        return 0
-
+    if board.is_checkmate(): return -9999 if board.turn else 9999
     score = 0
-    for piece_type, value in PIECE_VALUES.items():
-        score += len(board.pieces(piece_type, chess.WHITE)) * value
-        score -= len(board.pieces(piece_type, chess.BLACK)) * value
+    for pt, val in PIECE_VALUES.items():
+        score += len(board.pieces(pt, chess.WHITE)) * val
+        score -= len(board.pieces(pt, chess.BLACK)) * val
     return score
 
-def minimax(board, depth, alpha, beta, is_maximizing):
-    """
-    Recursive Minimax with Alpha-Beta Pruning.
-    """
-    if depth == 0 or board.is_game_over():
-        return evaluate_board(board)
-
-    if is_maximizing:
+def minimax(board, depth, alpha, beta, maximizing):
+    if depth == 0 or board.is_game_over(): return evaluate_board(board)
+    if maximizing:
         max_eval = -float('inf')
         for move in board.legal_moves:
             board.push(move)
-            eval = minimax(board, depth - 1, alpha, beta, False)
+            max_eval = max(max_eval, minimax(board, depth-1, alpha, beta, False))
             board.pop()
-            max_eval = max(max_eval, eval)
-            alpha = max(alpha, eval)
-            if beta <= alpha:
-                break
+            alpha = max(alpha, max_eval)
+            if beta <= alpha: break
         return max_eval
     else:
         min_eval = float('inf')
         for move in board.legal_moves:
             board.push(move)
-            eval = minimax(board, depth - 1, alpha, beta, True)
+            min_eval = min(min_eval, minimax(board, depth-1, alpha, beta, True))
             board.pop()
-            min_eval = min(min_eval, eval)
-            beta = min(beta, eval)
-            if beta <= alpha:
-                break
+            beta = min(beta, min_eval)
+            if beta <= alpha: break
         return min_eval
 
-def get_ai_move(board, depth):
-    """
-    Finds the best move for the AI (playing as Black).
-    """
-    best_move = None
-    best_value = float('inf')  # AI wants to minimize the score (Black)
+# --- UI Logic ---
+IMAGES = {}
 
-    for move in board.legal_moves:
-        board.push(move)
-        board_value = minimax(board, depth - 1, -float('inf'), float('inf'), True)
-        board.pop()
-        if board_value < best_value:
-            best_value = board_value
-            best_move = move
-    return best_move
+def load_images():
+    pieces = ['wP', 'wR', 'wN', 'wB', 'wK', 'wQ', 'bP', 'bR', 'bN', 'bB', 'bK', 'bQ']
+    for p in pieces:
+        # Note: Ensure these files exist in your 'assets' folder!
+        try:
+            IMAGES[p] = pygame.transform.scale(
+                pygame.image.load(f"assets/{p}.png"), (SQ_SIZE, SQ_SIZE))
+        except:
+            IMAGES[p] = None # Fallback if images are missing
 
-def play_game():
-    board = chess.Board()
-    print("--- Python AI Chess: You (White) vs AI (Black) ---")
-    print("Enter moves in UCI format (e.g., e2e4).")
-
-    while not board.is_game_over():
-        print("\n", board)
-        
-        if board.turn == chess.WHITE:
-            # Human Turn
-            move_str = input("\nYour move (White): ")
-            try:
-                move = chess.Move.from_uci(move_str)
-                if move in board.legal_moves:
-                    board.push(move)
-                else:
-                    print("❌ Illegal move. Try again.")
-            except ValueError:
-                print("⚠️ Invalid format. Use e2e4 style.")
-        else:
-            # AI Turn
-            print("\nAI is thinking...")
-            start_time = time.time()
-            move = get_ai_move(board, 3)
-            end_time = time.time()
+def draw_game_state(screen, board, selected_sq):
+    # 1. Draw Board
+    for r in range(8):
+        for c in range(8):
+            color = COLORS[(r + c) % 2]
+            pygame.draw.rect(screen, color, pygame.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
             
-            board.push(move)
-            print(f"AI moved: {move} (calculated in {end_time - start_time:.2f}s)")
+            # Highlight selection
+            if selected_sq == chess.square(c, 7-r):
+                pygame.draw.rect(screen, (255, 255, 0), pygame.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE), 3)
 
-    print("\n--- GAME OVER ---")
-    print(f"Result: {board.result()}")
+    # 2. Draw Pieces
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece:
+            color_prefix = 'w' if piece.color == chess.WHITE else 'b'
+            piece_name = color_prefix + piece.symbol().upper()
+            if IMAGES.get(piece_name):
+                # Convert chess square to screen coordinates
+                c, r = chess.square_file(sq), 7 - chess.square_rank(sq)
+                screen.blit(IMAGES[piece_name], (c*SQ_SIZE, r*SQ_SIZE))
+
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    load_images()
+    board = chess.Board()
+    selected_sq = None
+    running = True
+
+    while running:
+        # Check for AI Turn (Black)
+        if not board.is_game_over() and board.turn == chess.BLACK:
+            best_val = float('inf')
+            best_move = None
+            for move in board.legal_moves:
+                board.push(move)
+                val = minimax(board, 2, -float('inf'), float('inf'), True)
+                board.pop()
+                if val < best_val:
+                    best_val = val
+                    best_move = move
+            board.push(best_move)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            
+            if event.type == pygame.MOUSEBUTTONDOWN and board.turn == chess.WHITE:
+                location = pygame.mouse.get_pos()
+                col, row = location[0] // SQ_SIZE, 7 - (location[1] // SQ_SIZE)
+                sq = chess.square(col, row)
+
+                if selected_sq is None:
+                    if board.piece_at(sq): selected_sq = sq
+                else:
+                    move = chess.Move(selected_sq, sq)
+                    if move in board.legal_moves:
+                        board.push(move)
+                    selected_sq = None
+
+        draw_game_state(screen, board, selected_sq)
+        pygame.display.flip()
+
+    pygame.quit()
 
 if __name__ == "__main__":
-    play_game()
+    main()
