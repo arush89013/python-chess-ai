@@ -9,17 +9,17 @@ This engine is powered by the **Minimax Algorithm** enhanced with **Alpha-Beta P
 ## Features
 
 - **Custom AI Engine:** Play against an AI that evaluates thousands of possible move combinations.
-- 
+  
 - **Variable Difficulty:** Toggle between Easy, Medium, and Hard modes in real-time.
-- 
+  
 - **Classic Aesthetic:** A wooden-themed board with top-left algebraic coordinates (a1-h8).
-- 
+  
 - **Tactile Feedback:** Integrated sound effects for standard moves and piece captures.
-- 
+  
 - **Human-Like Pacing:** An artificial thinking delay ensures the AI doesn't move instantly, making the game feel more natural.
-- 
+  
 - **Smart Selection:** Highlights the currently selected piece to prevent misclicks.
-- 
+  
 - **Game Over Interface:** Clear visual overlay for Checkmate, Stalemate, or Draw results with a quick "Press R to Restart" feature.
 
 ## Technical Overview
