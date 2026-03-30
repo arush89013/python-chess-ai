@@ -1,4 +1,4 @@
-# Python Chess AI (Wooden Edition)
+# Python Chess AI 
 
 A fully interactive Chess game built with Python, Pygame, and the python-chess library. This project features a custom-built AI opponent that utilizes advanced search algorithms to simulate intelligent gameplay.
 
@@ -12,15 +12,15 @@ This engine is powered by the **Minimax Algorithm** enhanced with **Alpha-Beta P
   
 - **Variable Difficulty:** Toggle between Easy, Medium, and Hard modes in real-time.
   
-- **Classic Aesthetic:** A wooden-themed board with top-left algebraic coordinates (a1-h8).
+- **Classic Aesthetic:** A green and white board with top-left algebraic coordinates (a1-h8).
   
 - **Tactile Feedback:** Integrated sound effects for standard moves and piece captures.
   
 - **Human-Like Pacing:** An artificial thinking delay ensures the AI doesn't move instantly, making the game feel more natural.
   
-- **Smart Selection:** Highlights the currently selected piece to prevent misclicks.
+- **Smart Selection:** Highlights the currently selected piece to prevent misclicks and showing the legal moves by a yellow dot.
   
-- **Game Over Interface:** Clear visual overlay for Checkmate, Stalemate, or Draw results with a quick "Press R to Restart" feature.
+- **Probability Percentage:** Displaying a win probability of user and ai
 
 ## Technical Overview
 
